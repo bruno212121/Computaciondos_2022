@@ -1,5 +1,5 @@
 import argparse, os, string
-
+import time
 
 parser = argparse.ArgumentParser(description="El programa genera <N> procesos hijos,cada proceso estará asociado a una letra del alfabeto")
 
@@ -20,14 +20,25 @@ def create_archivo(path):
 fd = create_archivo(args.f)
 
 def hijos(letra):
-    if not os.fork():
-
+    if os.fork() == 0:
         if args.v:
             print("Proceso", os.getpid(), "Escribiendo letras: ", abc[letra])
-        fd.write(abc[letra])
+        for i in range(args.r):
+            fd.write(abc[letra])
+        fd.flush()
+        time.sleep(1)
+        os._exit(0)
+
 
 def padre():
     for i in range(args.n):
         hijos(i)
+    for i in range(args.n):
+        os.wait()
+    fd = open(args.f, "r")
+    lectura = fd.readlines()
+    print(lectura)
+
+padre()
 
 
