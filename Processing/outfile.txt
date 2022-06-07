@@ -1,0 +1,9 @@
+escritores.py
+inversor.py
+logfile.txt
+outfile.txt
+prueba.txt
+Subprocess_Tp2.py
+sumapares.py
+texto.txt
+
