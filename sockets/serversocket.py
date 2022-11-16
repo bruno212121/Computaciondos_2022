@@ -1,27 +1,40 @@
-"""
-Escriba un programa cliente/servidor en python que permita ejecutar comandos GNU/Linux en una computadora remota.
+import socketserver, argparse, subprocess, signal
 
-Técnicamente, se deberá ejecutar un código servidor en un equipo “administrado”, y programar un cliente (administrador) que permita conectarse al servidor mediante sockets STREAM.
+class Thread(socketserver.ThreadingMixIn, socketserver.TCPServer):
+    pass
 
-El cliente deberá darle al usuario un prompt en el que pueda ejecutar comandos de la shell.
+class Process(socketserver.ForkingMixIn, socketserver.TCPServer):
+    pass
 
-Esos comandos serán enviados al servidor, el servidor los ejecutará, y retornará al cliente:
+class MyTCPHandler(socketserver.BaseRequestHandler):
 
-la salida estándar resultante de la ejecución del comando
-la salida de error resultante de la ejecución del comando.
-El cliente mostrará en su consola local el resultado de ejecución del comando remoto, ya sea que se haya realizado correctamente o no, anteponiendo un OK o un ERROR según corresponda.
+    def handle(self):
+        while True:
+            data = self.request.recv(1024).strip()
+            if len(data) == 0 or data == "exit":
+                print(f"Cliente desconectado {self.client_address[0]}")
+                server.shutdown()
+                exit(0)
+            command = subprocess.Popen([data], shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            stdout, stderr = command.communicate()
+            if command.returncode == 0:
+                ans = "OK \n"+ stdout
+            else:
+                ans = "ERROR \n"+ stderr
+            self.request.send(ans.encode('ascii'))
 
-El servidor debe atender solicitudes utilizando sockets de alto nivel con serversocket.
-
-El servidor debe poder recibir las siguientes opciones:
-
--p <port>: puerto donde va a atender el servidor.
--c p | t : modo de concurrencia. Si la opción es "-c p" el servidor generará un nuevo proceso al recibir conexiones nuevas. Si la opción es "-c t" generará hilos nuevos.
-El cliente debe poder recibir las siguientes opciones:
-
--h <host> : dirección IP o nombre del servidor al que conectarse.
--p <port> : número de puerto del servidor.
-Para leer estos argumentos se recomienda usar módulos como argparse o click.
-"""
-
-import serversocket, argparse,  
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Scrip que simula una shell desde un servidor")
+    parser.add_argument('-p', type=int, help="Ingresar puerto")
+    parser.add_argument('-c', type=str, help="Ingrese 'p' para generar un proceso ó 't' para generar un hilo")
+    args = parser.parse_args()
+    HOST, PORT = "", args.p
+    socketserver.TCPServer.allow_reuse_address = True
+    if args.c == "p":
+        server = Process((HOST,PORT), MyTCPHandler)
+        print(f"Lanzando servidor (Port= {PORT})")
+        server.serve_forever()
+    elif args.c == "t":
+        server = Thread((HOST,PORT), MyTCPHandler)
+        print(f"Lanzando servidor (Port= {PORT})")
+        server.serve_forever()
