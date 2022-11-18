@@ -1,6 +1,6 @@
 import socketserver, argparse, socket
-import concurrent.futures
 from subprocess import Popen, PIPE, STDOUT
+import threading
 
 #Server para IPv4
 class ForkedTCPServer(socketserver.ForkingMixIn, socketserver.TCPServer):
@@ -20,15 +20,48 @@ class ThreadTCPServer_ipv6(socketserver.ThreadingMixIn, socketserver.TCPServer):
 
 class MyServer(socketserver.BaseRequestHandler):
     def handle(self):
-        self.data = self.request.recv(1024).strip()
         while True:
-            data = clientsocket.recv(1024)
-            print("Address: %s " % str(addr))
-            print("Recibido: "+data.decode("ascii"))
-            msg = input('Enter message to send : ')
-            clientsocket.send(msg.encode('ascii'))
-            print("recibiendo", conn.send)
-        conn.close()
+            data = self.request.recv(1024).strip()
+            if len(data) == 0 or data == "exit":
+                print(f"Cliente desconectado {self.client_address[0]}")
+                exit(0)
+            command = Popen([data], shell=True, stdout=PIPE, stderr=PIPE, text=True)
+            stdout, stderr = command.communicate()
+            if command.returncode == 0:
+                ans = "OK \n"+ stdout
+            else:
+                ans = "ERROR \n"+ stderr
+            self.request.send(ans.encode('ascii'))
+
+def menu(dir, port):
+    print("muestra el primer set ",dir) 
+    if dir[0] == socket.AF_INET: 
+        if args.c == "p":
+            server = ForkedTCPServer((HOST,port), MyServer)
+            print(f"Lanzando servidor (Port= {port})")
+        elif args.c == "t":
+            server = ThreadTCPServer((HOST,port), MyServer)
+            print(f"Lanzando servidor (Port= {port})")
+    elif dir[0] == socket.AF_INET6:
+        if args.c == "p":
+            server = ForkedTCPServer_ipv6((HOST,port), MyServer)
+            print(f"Lanzando servidor (Port= {port})")
+        elif args.c == "t":
+            server = ThreadTCPServer_ipv6((HOST,port), MyServer)
+            print(f"Lanzando servidor (Port= {port})")
+    server.serve_forever()
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Scrip que simula una shell desde un servidor")
+    parser.add_argument('-p', type=int, help="Ingresar puerto")
+    parser.add_argument('-c', type=str, help="Ingrese 'p' para generar un proceso ó 't' para generar un hilo")
+    args = parser.parse_args()
+    HOST = ""
+    PORT = args.p
     socketserver.TCPServer.allow_reuse_address = True
+    directions = socket.getaddrinfo("localhost", args.p, socket.AF_UNSPEC, socket.SOCK_STREAM)
+    workers = []
+    for dir in directions:
+        workers.append(threading.Thread(target=menu, args=(dir,args.p)))
+    for worker in workers:
+        worker.start()
