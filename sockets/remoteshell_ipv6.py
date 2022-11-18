@@ -34,7 +34,7 @@ class MyServer(socketserver.BaseRequestHandler):
             self.request.send(ans.encode('ascii'))
 
 def menu(dir, port):
-    print("muestra el primer set ",dir) 
+    print(dir) #muestra el primer set 
     if dir[0] == socket.AF_INET: 
         if args.c == "p":
             server = ForkedTCPServer((HOST,port), MyServer)
